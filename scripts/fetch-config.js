@@ -33,36 +33,45 @@ async function fetchStyleGuide() {
   return '';
 }
 
-/**
- * Resolve o diretório de skills.
- * Se o projeto passou um SKILLS_PATH, usa ele.
- * Senão, usa as skills padrão da própria action (ACTION_PATH/scripts/skills).
- *
- * Retorna o conteúdo da skill solicitada.
- */
-function loadSkill(skillName = 'default') {
+function loadAllSkills() {
   const { SKILLS_PATH, GITHUB_WORKSPACE, ACTION_PATH } = process.env;
+
   if (SKILLS_PATH) {
-    const customPath = path.resolve(GITHUB_WORKSPACE || '.', SKILLS_PATH, `${skillName}.md`);
-    if (fs.existsSync(customPath)) {
-      console.log(`Skill customizada carregada: ${skillName} (${customPath})`);
-      return fs.readFileSync(customPath, 'utf-8');
+    const skillsDir = path.resolve(GITHUB_WORKSPACE || '.', SKILLS_PATH);
+
+    if (!fs.existsSync(skillsDir)) {
+      console.warn(`⚠️  skills_path não encontrado: ${skillsDir}`);
+      return loadDefaultSkill();
     }
-    console.warn(`Skill "${skillName}" não encontrada em ${SKILLS_PATH}. Tentando skills padrão...`);
+
+    const files = fs.readdirSync(skillsDir).filter(f => f.endsWith('.md'));
+
+    if (!files.length) {
+      console.warn(`⚠️  Nenhum .md encontrado em ${skillsDir}`);
+      return loadDefaultSkill();
+    }
+
+    console.log(`🎯 Skills carregadas: ${files.join(', ')}`);
+
+    return files
+        .map(file => {
+          const name = file.replace('.md', '');
+          const content = fs.readFileSync(path.join(skillsDir, file), 'utf-8');
+          return `## Skill: ${name}\n${content}`;
+        })
+        .join('\n\n---\n\n');
   }
 
-  const defaultPath = path.join(ACTION_PATH || __dirname, 'skills', `${skillName}.md`);
+  return loadDefaultSkill();
+}
+
+function loadDefaultSkill() {
+  const defaultPath = path.join(__dirname, 'skills', 'default.md');
   if (fs.existsSync(defaultPath)) {
-    console.log(`Skill padrão carregada: ${skillName}`);
+    console.log('Skill padrão carregada: default');
     return fs.readFileSync(defaultPath, 'utf-8');
   }
-
-  if (skillName !== 'default') {
-    console.warn(`Skill "${skillName}" não encontrada. Usando "default".`);
-    return loadSkill('default');
-  }
-
-  console.warn('Nenhuma skill encontrada. Revisão sem instruções especializadas.');
+  console.warn('⚠️  Nenhuma skill encontrada.');
   return '';
 }
 
@@ -168,4 +177,4 @@ function fetchUrl(url, headers = {}) {
   });
 }
 
-module.exports = { fetchStyleGuide, loadSkill };
+module.exports = { fetchStyleGuide, loadAllSkills  };

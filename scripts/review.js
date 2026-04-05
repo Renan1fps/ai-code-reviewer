@@ -1,5 +1,5 @@
 const { Octokit } = require('@octokit/rest');
-const { fetchStyleGuide, loadSkill } = require('./fetch-config');
+const { fetchStyleGuide, loadAllSkills } = require('./fetch-config');
 
 const PROVIDER   = (process.env.LLM_PROVIDER || 'anthropic').toLowerCase();
 const MODEL      = process.env.LLM_MODEL || '';
@@ -26,8 +26,6 @@ function parseCommentArgs(body = '') {
   const args = {};
   const model = body.match(/--model=(\S+)/);
   if (model) args.model = model[1];
-  const skill = body.match(/--skill=(\S+)/);
-  if (skill) args.skill = skill[1];
   const focus = body.match(/--focus=([^\-\n]+)/);
   if (focus) args.focus = focus[1].trim();
   return args;
@@ -151,7 +149,7 @@ async function main() {
 
   const [styleGuide, skillContent] = await Promise.all([
     fetchStyleGuide(),
-    Promise.resolve(loadSkill(skillName)),
+    Promise.resolve(loadAllSkills(skillName)),
   ]);
 
   const styleSource =

@@ -7,10 +7,14 @@ branding:
   color: 'blue'
 
 inputs:
+  pr_number:
+    description: 'Número do PR (github.event.issue.number)'
+    required: true
+
   llm_provider:
     description: 'Provider de IA: anthropic | openai | gemini'
     required: false
-    default: 'anthropic'
+    default: 'gemini'
 
   llm_model:
     description: 'Modelo específico (opcional — usa o padrão do provider se vazio)'
@@ -98,7 +102,7 @@ runs:
         SKILLS_PATH:        ${{ inputs.skills_path }}
 
         GITHUB_TOKEN:       ${{ github.token }}
-        PR_NUMBER:          ${{ github.event.issue.number }}
+        PR_NUMBER:          ${{ inputs.pr_number }}
         REPO:               ${{ github.repository }}
         COMMENT_BODY:       ${{ github.event.comment.body }}
         ACTION_PATH:        ${{ github.action_path }}
