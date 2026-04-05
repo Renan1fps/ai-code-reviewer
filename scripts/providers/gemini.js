@@ -1,9 +1,14 @@
-const DEFAULT_MODEL = 'gemini-1.5-pro';
+const DEFAULT_MODEL = 'gemini-3-flash-preview';
+
 async function review({ model, prompt }) {
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const gemini = genAI.getGenerativeModel({ model: model || DEFAULT_MODEL });
-  const result = await gemini.generateContent(prompt);
-  return result.response.text();
+  const { GoogleGenAI  } = require('@google/genai');
+  const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const response = await genAI.models.generateContent({
+    model: model || DEFAULT_MODEL,
+    contents: prompt
+  });
+
+  return response.text;
 }
+
 module.exports = { review, DEFAULT_MODEL };
