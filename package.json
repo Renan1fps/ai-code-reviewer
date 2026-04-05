@@ -1,0 +1,12 @@
+{
+  "name": "ai-code-reviewer",
+  "version": "1.0.0",
+  "description": "Reusable GitHub Action for AI-powered PR code review",
+  "main": "scripts/review.js",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@google/generative-ai": "^0.21.0",
+    "@octokit/rest": "^21.0.2",
+    "openai": "^4.77.0"
+  }
+}

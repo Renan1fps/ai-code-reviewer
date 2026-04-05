@@ -1,0 +1,37 @@
+# Exemplo 2: Projeto que usa Confluence para style guide
+# Copie este arquivo para: .github/workflows/code-review.yml
+
+name: AI Code Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '@codeReviewer')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AI Code Review
+        uses: seu-org/ai-code-reviewer@v1
+        with:
+          llm_provider: openai
+          llm_model: gpt-4o
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+
+          # Style guide vem de uma página do Confluence
+          # Suporta: Confluence Cloud (atlassian.net) e Server/Data Center
+          confluence_url: 'https://suaempresa.atlassian.net/wiki/spaces/ENG/pages/123456789'
+          confluence_user: ${{ secrets.CONFLUENCE_USER }}   # email do usuário
+          confluence_token: ${{ secrets.CONFLUENCE_TOKEN }} # API token do Confluence
+
+          # Skills padrão da action são usadas (nenhum skills_path necessário)

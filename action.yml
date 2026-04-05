@@ -1,0 +1,106 @@
+name: 'AI Code Reviewer'
+description: 'Revisão automática de PRs com IA — acionada por @codeReviewer'
+author: 'renan1fps'
+
+branding:
+  icon: 'check-circle'
+  color: 'blue'
+
+inputs:
+  llm_provider:
+    description: 'Provider de IA: anthropic | openai | gemini'
+    required: false
+    default: 'anthropic'
+
+  llm_model:
+    description: 'Modelo específico (opcional — usa o padrão do provider se vazio)'
+    required: false
+    default: ''
+
+  anthropic_api_key:
+    description: 'API Key da Anthropic'
+    required: false
+    default: ''
+
+  openai_api_key:
+    description: 'API Key da OpenAI'
+    required: false
+    default: ''
+
+  gemini_api_key:
+    description: 'API Key do Google Gemini'
+    required: false
+    default: ''
+
+  # Passe UM dos três abaixo. Prioridade: style_guide_path > confluence_url > style_guide_url
+  style_guide_path:
+    description: 'Caminho para o arquivo de style guide no próprio repo (ex: ./docs/style-guide.md)'
+    required: false
+    default: ''
+
+  confluence_url:
+    description: 'URL de uma página do Confluence com o style guide'
+    required: false
+    default: ''
+
+  confluence_token:
+    description: 'Token de API do Confluence (necessário se usar confluence_url)'
+    required: false
+    default: ''
+
+  confluence_user:
+    description: 'Email do usuário Confluence para autenticação Basic Auth'
+    required: false
+    default: ''
+
+  style_guide_url:
+    description: 'URL genérica para buscar o style guide (Notion, Gitbook, etc)'
+    required: false
+    default: ''
+
+  skills_path:
+    description: |
+      Caminho para a pasta de skills customizadas no repo do projeto.
+      Se não informado, usa as skills padrão da action.
+      A pasta deve conter arquivos como: security.md, performance.md, etc.
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install action dependencies
+      shell: bash
+      run: npm install --prefix ${{ github.action_path }}
+
+    - name: Run AI Code Review
+      shell: bash
+      working-directory: ${{ github.workspace }}
+      env:
+        LLM_PROVIDER:       ${{ inputs.llm_provider }}
+        LLM_MODEL:          ${{ inputs.llm_model }}
+
+        ANTHROPIC_API_KEY:  ${{ inputs.anthropic_api_key }}
+        OPENAI_API_KEY:     ${{ inputs.openai_api_key }}
+        GEMINI_API_KEY:     ${{ inputs.gemini_api_key }}
+
+        STYLE_GUIDE_PATH:   ${{ inputs.style_guide_path }}
+        CONFLUENCE_URL:     ${{ inputs.confluence_url }}
+        CONFLUENCE_TOKEN:   ${{ inputs.confluence_token }}
+        CONFLUENCE_USER:    ${{ inputs.confluence_user }}
+        STYLE_GUIDE_URL:    ${{ inputs.style_guide_url }}
+
+        SKILLS_PATH:        ${{ inputs.skills_path }}
+
+        GITHUB_TOKEN:       ${{ github.token }}
+        PR_NUMBER:          ${{ github.event.issue.number }}
+        REPO:               ${{ github.repository }}
+        COMMENT_BODY:       ${{ github.event.comment.body }}
+        ACTION_PATH:        ${{ github.action_path }}
+
+      run: node ${{ github.action_path }}/scripts/review.js

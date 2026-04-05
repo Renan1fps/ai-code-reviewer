@@ -1,0 +1,35 @@
+# Exemplo 1: Projeto com style guide local
+# Copie este arquivo para: .github/workflows/code-review.yml
+
+name: AI Code Review
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  review:
+    if: |
+      github.event.issue.pull_request != null &&
+      contains(github.event.comment.body, '@codeReviewer')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: AI Code Review
+        uses: seu-org/ai-code-reviewer@v1
+        with:
+          llm_provider: anthropic
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+
+          # Style guide vive dentro do próprio repo
+          style_guide_path: './docs/style-guide.md'
+
+          # Skills customizadas do projeto (opcional)
+          # Se não passar, usa as skills padrão da action
+          skills_path: './docs/skills'
