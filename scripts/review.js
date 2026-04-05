@@ -22,15 +22,6 @@ if (!PROVIDERS[PROVIDER]) {
 
 const llm = require(PROVIDERS[PROVIDER]);
 
-function parseCommentArgs(body = '') {
-  const args = {};
-  const model = body.match(/--model=(\S+)/);
-  if (model) args.model = model[1];
-  const focus = body.match(/--focus=([^\-\n]+)/);
-  if (focus) args.focus = focus[1].trim();
-  return args;
-}
-
 async function getPRDiff() {
   const { data: files } = await octokit.pulls.listFiles({
     owner: OWNER, repo: REPO, pull_number: PR_NUMBER, per_page: 30,
@@ -141,38 +132,25 @@ async function postReview({ summary, verdict, comments, meta, prFiles }) {
 async function main() {
   console.log(`Provider: ${PROVIDER}`);
 
-  const args      = parseCommentArgs(process.env.COMMENT_BODY || '');
-  const model     = args.model || MODEL || llm.DEFAULT_MODEL;
-  const skillName = args.skill || 'default';
+  const model = MODEL || llm.DEFAULT_MODEL;
+  console.log(`Modelo: ${model}`);
 
-  console.log(`📦 Modelo: ${model} | 🎯 Skill: ${skillName}`);
-
-  const [styleGuide, skillContent] = await Promise.all([
+  const [styleGuide, skillsContent] = await Promise.all([
     fetchStyleGuide(),
-    Promise.resolve(loadAllSkills(skillName)),
+    Promise.resolve(loadAllSkills()),
   ]);
 
-  const styleSource =
-    process.env.STYLE_GUIDE_PATH   ? process.env.STYLE_GUIDE_PATH :
-    process.env.CONFLUENCE_URL     ? 'confluence' :
-    process.env.STYLE_GUIDE_URL    ? 'url' : null;
-
-  console.log(`Buscando diff do PR #${PR_NUMBER}...`);
+  console.log(`🔍 Buscando diff do PR #${PR_NUMBER}...`);
   const { diff, summary, files: prFiles } = await getPRDiff();
 
-  const prompt = buildPrompt({ skillContent, styleGuide, diff, summary, focus: args.focus });
+  const prompt = buildPrompt({ skillsContent, styleGuide, diff, summary });
 
   console.log(`Enviando para ${PROVIDER}...`);
   const raw = await llm.review({ model, prompt });
 
   const { summary: reviewSummary, verdict, comments } = parseJSON(raw);
 
-  console.log(`Postando review inline...`);
-  await postReview({
-    summary: reviewSummary, verdict, comments,
-    meta: { provider: PROVIDER, model, skill: skillName, styleSource },
-    prFiles,
-  });
+  await postReview({ summary: reviewSummary, verdict, comments, meta: { provider: PROVIDER, model }, prFiles });
 
   console.log(`Review postado! Veredicto: ${verdict}`);
 }

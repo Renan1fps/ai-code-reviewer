@@ -34,7 +34,7 @@ async function fetchStyleGuide() {
 }
 
 function loadAllSkills() {
-  const { SKILLS_PATH, GITHUB_WORKSPACE, ACTION_PATH } = process.env;
+  const { SKILLS_PATH, GITHUB_WORKSPACE } = process.env;
 
   if (SKILLS_PATH) {
     const skillsDir = path.resolve(GITHUB_WORKSPACE || '.', SKILLS_PATH);
