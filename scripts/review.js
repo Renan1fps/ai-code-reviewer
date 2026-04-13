@@ -1,5 +1,5 @@
 const { Octokit } = require('@octokit/rest');
-const { fetchStyleGuide } = require('fetch-config');
+const { fetchStyleGuide } = require('./fetch-config');
 
 const MAX_PATCH_CHARS_PER_FILE = 8000;
 const MAX_TOTAL_DIFF_CHARS = 60000;
