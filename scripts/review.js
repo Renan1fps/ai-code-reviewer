@@ -1,10 +1,8 @@
 const { Octokit } = require('@octokit/rest');
-const fs = require('fs');
-const path = require('path');
+const { fetchStyleGuide } = require('fetch-config');
 
 const MAX_PATCH_CHARS_PER_FILE = 8000;
 const MAX_TOTAL_DIFF_CHARS = 60000;
-const MAX_STYLE_GUIDE_CHARS = 4000;
 const MAX_FILES = 30;
 
 const SENSITIVE_PATTERNS = [
@@ -25,12 +23,12 @@ const [OWNER, REPO] = (process.env.REPO || '').split('/');
 const PR_NUMBER = parseInt(process.env.PR_NUMBER, 10);
 
 if (!OWNER || !REPO || Number.isNaN(PR_NUMBER)) {
-  console.error('❌ Variáveis obrigatórias ausentes ou inválidas: REPO (owner/repo) e PR_NUMBER.');
+  console.error('Variáveis obrigatórias ausentes ou inválidas: REPO (owner/repo) e PR_NUMBER.');
   process.exit(1);
 }
 
 if (!process.env.GITHUB_TOKEN) {
-  console.error('❌ GITHUB_TOKEN não definido.');
+  console.error('GITHUB_TOKEN não definido.');
   process.exit(1);
 }
 
@@ -43,25 +41,11 @@ const PROVIDERS = {
 };
 
 if (!PROVIDERS[PROVIDER]) {
-  console.error(`❌ Provider desconhecido: "${PROVIDER}". Use: anthropic | openai | gemini`);
+  console.error(`Provider desconhecido: "${PROVIDER}". Use: anthropic | openai | gemini`);
   process.exit(1);
 }
 
 const llm = require(PROVIDERS[PROVIDER]);
-
-function loadStyleGuide() {
-  const stylePath = path.join(__dirname, 'style-guide.md');
-  if (!fs.existsSync(stylePath)) {
-    console.warn('style-guide.md não encontrado. Revisão sem regras customizadas.');
-    return '';
-  }
-  const content = fs.readFileSync(stylePath, 'utf-8');
-  if (content.length > MAX_STYLE_GUIDE_CHARS) {
-    console.warn(`Style guide truncado de ${content.length} para ${MAX_STYLE_GUIDE_CHARS} caracteres.`);
-    return content.slice(0, MAX_STYLE_GUIDE_CHARS) + '\n[... truncado]';
-  }
-  return content;
-}
 
 const ALLOWED_MODELS = new Set([
   // anthropic
@@ -83,14 +67,14 @@ function parseCommentArgs(commentBody = '') {
   if (modelMatch && ALLOWED_MODELS.has(modelMatch[1])) {
     overrides.model = modelMatch[1];
   } else if (modelMatch) {
-    console.warn(`⚠Modelo "${modelMatch[1]}" não está na allowlist — ignorado.`);
+    console.warn(`Modelo "${modelMatch[1]}" não está na allowlist — ignorado.`);
   }
 
   const focusMatch = commentBody.match(/--focus=([\w]+)/);
   if (focusMatch && ALLOWED_FOCUS.has(focusMatch[1].toLowerCase())) {
     overrides.focus = focusMatch[1].toLowerCase();
   } else if (focusMatch) {
-    console.warn(`⚠️  Foco "${focusMatch[1]}" não está na allowlist — ignorado.`);
+    console.warn(`Foco "${focusMatch[1]}" não está na allowlist — ignorado.`);
   }
 
   return overrides;
@@ -274,43 +258,46 @@ function buildSuggestionComment(suggestion) {
 
 
 async function postReview(reviewText, providerInfo) {
-  const header = `## 🤖 AI Code Review\n> **Provider:** \`${providerInfo.provider}\` · **Modelo:** \`${providerInfo.model}\`\n\n---\n\n`;
+  const header = `## 🤖 AI Code Review
+> **Provider:** \`${providerInfo.provider}\` · **Modelo:** \`${providerInfo.model}\`
+
+---
+
+`;
 
   const { suggestions, cleanedBody } = parseSuggestions(reviewText);
 
-  const inlineComments = suggestions.map(s => ({
-    path: s.path,
-    line: s.line,
-    side: 'RIGHT',
-    body: buildSuggestionComment(s),
-  }));
-
-  if (inlineComments.length > 0) {
-    console.log(`📝 Postando review com ${inlineComments.length} sugestão(ões) inline...`);
-    try {
-      await octokit.pulls.createReview({
-        owner: OWNER,
-        repo: REPO,
-        pull_number: PR_NUMBER,
-        event: 'COMMENT',
-        body: header + cleanedBody,
-        comments: inlineComments,
-      });
-      return;
-    } catch (err) {
-      console.warn(`Falha ao postar review com sugestões inline: ${err.message}`);
-      console.warn('Fallback: postando como comentário único...');
-    }
+  if (cleanedBody?.trim()) {
+    await octokit.issues.createComment({
+      owner: OWNER,
+      repo: REPO,
+      issue_number: PR_NUMBER,
+      body: header + cleanedBody,
+    });
   }
 
-  await octokit.issues.createComment({
-    owner: OWNER,
-    repo: REPO,
-    issue_number: PR_NUMBER,
-    body: header + cleanedBody,
-  });
-}
+  if (suggestions.length > 0) {
+    console.log(`Postando ${suggestions.length} sugestão(ões) inline...`);
 
+    for (const s of suggestions) {
+      try {
+        await octokit.pulls.createReviewComment({
+          owner: OWNER,
+          repo: REPO,
+          pull_number: PR_NUMBER,
+          path: s.path,
+          line: s.line,
+          side: 'RIGHT',
+          body: buildSuggestionComment(s),
+        });
+      } catch (err) {
+        console.warn(
+            `Falha ao comentar em ${s.path}:${s.line} → ${err.message}`
+        );
+      }
+    }
+  }
+}
 
 async function main() {
   const commentBody = process.env.COMMENT_BODY || '';
@@ -319,7 +306,7 @@ async function main() {
   const modelToUse = args.model || MODEL || llm.DEFAULT_MODEL;
   console.log(`Model: ${modelToUse}`);
 
-  const styleGuide = loadStyleGuide();
+  const styleGuide = await fetchStyleGuide();
   console.log(`Style guide: ${styleGuide ? 'load' : 'not found'}`);
 
   console.log(`Fetching PR diff #${PR_NUMBER}...`);
