@@ -252,8 +252,13 @@ function parseSuggestions(reviewText) {
   return { suggestions, cleanedBody };
 }
 
-function buildSuggestionComment(suggestion) {
-  return `\`\`\`suggestion\n${suggestion.suggested}\n\`\`\``;
+function buildSuggestionComment(s) {
+  return `${s.message}
+
+\`\`\`suggestion
+${s.code}
+\`\`\`
+`;
 }
 
 
@@ -279,22 +284,21 @@ async function postReview(reviewText, providerInfo) {
   if (suggestions.length > 0) {
     console.log(`Postando ${suggestions.length} sugestão(ões) inline...`);
 
-    for (const s of suggestions) {
-      try {
-        await octokit.pulls.createReviewComment({
-          owner: OWNER,
-          repo: REPO,
-          pull_number: PR_NUMBER,
+    try {
+      await octokit.pulls.createReview({
+        owner: OWNER,
+        repo: REPO,
+        pull_number: PR_NUMBER,
+        event: 'COMMENT',
+        comments: suggestions.map((s) => ({
           path: s.path,
           line: s.line,
           side: 'RIGHT',
           body: buildSuggestionComment(s),
-        });
-      } catch (err) {
-        console.warn(
-            `Falha ao comentar em ${s.path}:${s.line} → ${err.message}`
-        );
-      }
+        })),
+      });
+    } catch (err) {
+      console.warn(`Falha ao postar sugestões inline: ${err.message}`);
     }
   }
 }
