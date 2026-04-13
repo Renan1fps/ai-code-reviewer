@@ -214,33 +214,62 @@ Seja objetivo, construtivo e direto. Referencie trechos com blocos de código cu
 }
 
 function parseSuggestions(reviewText) {
-  const regex = /\[SUGGESTION\]\s*\nfile:\s*(.+)\nline:\s*(\d+)\ndescription:\s*(.+)\noriginal:\s*([\s\S]*?)\nsuggested:\s*([\s\S]*?)\n\[\/SUGGESTION\]/g;
-
   const suggestions = [];
-  let match;
-  while ((match = regex.exec(reviewText)) !== null) {
-    const line = parseInt(match[2], 10);
-    if (!match[1].trim() || Number.isNaN(line)) continue;
+  const lines = reviewText.split('\n');
+  const bodyLines = [];
+  let i = 0;
 
-    suggestions.push({
-      path: match[1].trim(),
-      line,
-      description: match[3].trim(),
-      original: match[4].trim(),
-      suggested: match[5].trim(),
-    });
+  while (i < lines.length) {
+    if (lines[i].trim() === '[SUGGESTION]') {
+      const block = { path: '', line: NaN, description: '', original: '', suggested: '' };
+      let currentField = null;
+      i++;
+
+      while (i < lines.length && lines[i].trim() !== '[/SUGGESTION]') {
+        const line = lines[i];
+
+        if (/^file:\s/.test(line)) {
+          block.path = line.replace(/^file:\s*/, '').trim();
+          currentField = null;
+        } else if (/^line:\s/.test(line)) {
+          block.line = parseInt(line.replace(/^line:\s*/, ''), 10);
+          currentField = null;
+        } else if (/^description:\s/.test(line)) {
+          block.description = line.replace(/^description:\s*/, '').trim();
+          currentField = null;
+        } else if (/^original:\s?/.test(line)) {
+          block.original = line.replace(/^original:\s?/, '');
+          currentField = 'original';
+        } else if (/^suggested:\s?/.test(line)) {
+          block.suggested = line.replace(/^suggested:\s?/, '');
+          currentField = 'suggested';
+        } else if (currentField) {
+          block[currentField] += '\n' + line;
+        }
+
+        i++;
+      }
+
+      if (i < lines.length) i++;
+
+      block.original = block.original.trim();
+      block.suggested = block.suggested.trim();
+
+      if (block.path && !Number.isNaN(block.line)) {
+        suggestions.push(block);
+      }
+    } else {
+      bodyLines.push(lines[i]);
+      i++;
+    }
   }
 
-  const cleanedBody = reviewText
-      .replace(/\[SUGGESTION\]\s*\nfile:\s*.+\nline:\s*\d+\ndescription:\s*.+\noriginal:\s*[\s\S]*?\nsuggested:\s*[\s\S]*?\n\[\/SUGGESTION\]/g, '')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim();
-
+  const cleanedBody = bodyLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return { suggestions, cleanedBody };
 }
 
 function buildSuggestionComment(suggestion) {
-  return `${suggestion.description}\n\n\`\`\`suggestion\n${suggestion.suggested}\n\`\`\``;
+  return `\`\`\`suggestion\n${suggestion.suggested}\n\`\`\``;
 }
 
 
@@ -278,7 +307,7 @@ async function postReview(reviewText, providerInfo) {
     owner: OWNER,
     repo: REPO,
     issue_number: PR_NUMBER,
-    body: header + reviewText,
+    body: header + cleanedBody,
   });
 }
 
