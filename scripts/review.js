@@ -253,10 +253,10 @@ function parseSuggestions(reviewText) {
 }
 
 function buildSuggestionComment(s) {
-  return `${s.message}
+  return `${s.description}
 
 \`\`\`suggestion
-${s.code}
+${s.suggested}
 \`\`\`
 `;
 }
